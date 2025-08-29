@@ -15,7 +15,7 @@ Communication between components uses TLS over TCP/IP, and application messages 
 │ • Authentication│    │ • Seat Tracking │
 │ • Coordination  │    │ • Payments      │
 └─────────────────┘    └─────────────────┘
-             ▲                                  ▲
+         ▲                       ▲
          │                       │
          └───────────────────────┘
                     │
@@ -300,19 +300,19 @@ quit - Exit the client
 
 ## Step 4.3 Running Tests
 
-# Protocol Tests
- End-to-end check of the core protocol: register, authenticate, register device, reserve, and purchase (happy path).
+### Protocol Tests
+End-to-end check of the core protocol: register, authenticate, register device, reserve, and purchase (happy path).
 ./protocol_test
 
-# Basic Test
-# Minimal “smoke” test: server boots and basic commands work without errors.
+### Basic Test
+Minimal “smoke” test: server boots and basic commands work without errors.
 ./basic_test
 
-# Benchmark Tests
- Throughput/latency measurement under load -> example: 50 connections for 60 seconds.
+### Benchmark Tests
+Throughput/latency measurement under load -> example: 50 connections for 60 seconds.
 ./benchmark_test --connections 50 --duration 60
 
-# Load Testing (Multiple Clients)
+### Load Testing (Multiple Clients)
 Spawn multiple clients in parallel to stress the system (example: 10).
 Adjust --server/--port as needed.
 for i in {1..10}; do
@@ -320,39 +320,39 @@ for i in {1..10}; do
 done
 wait
 
-# Concurrent Reservation Test
+### Concurrent Reservation Test
 Verifies race control for reservations: prevents double-booking and checks
 ./concurrent_reservation_test
 
-# Discount Test
+### Discount Test
 Validates discount/pricing logic per ticket/group type (individual/family/business/tourist).
 ./discount_test
 
-# Group Duplicate Member Test
+### Group Duplicate Member Test
 Validates group membership rules: prevents adding the same member twice and checks leader/member constraints.
 ./group_duplicate_member_test
 
-# Admin Policy Test
+### Admin Policy Test
 Validates admin-only operations and expected error codes for non-admin users.
 ./admin_policy_test
 
-# Test Admin Updates
+### Test Admin Updates
 Verifies that admin changes (e.g., fares/routes) propagate to clients and are persisted (DB + notifications).
 ./test_admin_updates
 
-# Stream Test
+### Stream Test
 Robust TCP framing: handles fragmentation/reassembly; checks length-prefix and CRC32 integrity.
 ./stream_test
 
-# TLS Test
+### TLS Test
 TLS handshake and secure connection (Boost.Asio/OpenSSL); rejects invalid certificates per default config.
 ./tls_test
 
-# Multicast Test
+### Multicast Test
 Low-level UDP multicast: join/leave group and receive announcements (service discovery/announce).
 ./mcast_test
 
-# Route Status Multicast Test
+### Route Status Multicast Test
 Asynchronous broadcasting of line/route status and reception by subscribed clients.
 ./route_status_mcast_test
 
