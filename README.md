@@ -41,8 +41,8 @@ Install Boost development packages for your distribution:
 - **Ubuntu / Debian**
   sudo apt-get update
   sudo apt-get install -y libboost-all-dev
-  # Minimal alternative:
-  # sudo apt-get install -y libboost-system-dev libboost-thread-dev
+  **Minimal alternative:**
+  **sudo apt-get install -y libboost-system-dev libboost-thread-dev**
 
 - **Fedora**
   sudo dnf install -y boost-devel
@@ -109,32 +109,32 @@ build/
 
 ### Step 4: Run the System
 
-### 4.1. Multi-VM Testing (two nodes)
+**4.1. Multi-VM Testing (two nodes)**
 
-- **Server VM (Central + Vehicle):** 100.100.129.79
-- **Client VM (User Client):** 100.100.129.15
+- Server VM (Central + Vehicle): SERVER_IP 
+- Client VM (User Client): CLIENT_IP 
 
-**VM1 (100.100.129.79) – terminal 1: Central Server**
+**VM1 (SERVER_IP) – terminal 1: Central Server**
 ```bash
 cd build
 ./central_server --port 8080 \
   --cert certs/server.crt --key certs/server.key
 ```
-**VM1 (100.100.129.79) – terminal 2: Vehicle Server (bus)**
+**VM1 (SERVER_IP) – terminal 2: Vehicle Server (bus)**
 ```bash
 cd build
 ./vehicle_server --type bus --port 8081 \
-  --central-server 100.100.129.79:8080 \
+  --central-server SERVER_IP:8080 \
   --cert certs/server.crt --key certs/server.key
 ```
-**VM2 (100.100.129.15): User Client**
+**VM2 (CLIENT_IP): User Client**
 ```bash
 cd build
-./user_client --server 100.100.129.79 --port 8080 --ca certs/ca.crt
+./user_client --server SERVER_IP --port 8080 --ca certs/ca.crt
 
 TLS quick check (optional, sa Client VM-a):
 
-openssl s_client -connect 100.100.129.79:8080 -servername 100.100.129.79 | head -n 20
+openssl s_client -connect SERVER_IP:8080 -servername SERVER_IP  | head -n 20
 ```
 ### 4.2 Single Machine Testing
 You'll need **3 terminal windows** to run the complete system:
@@ -239,19 +239,19 @@ rm_member ekipa 9876543210987 - Remove member (URN) from group 'ekipa'
 cd build
 
 # Start Central Server
-./central_server --bind 100.100.129.79 --port 8080
+./central_server --bind SERVER_IP --port 8080
 
 # Start Vehicle Server (in this case we used type = bus)
-./vehicle_server --type bus --port 8081 --central-server 100.100.129.79:8080   ******SAMO PROVJERI JE LI OKEJ OVA???!!!!/********
+./vehicle_server --type bus --port 8081 --central-server SERVER_IP:8080  
 
 # Start Client A (monitor / listen)
-./user_client -id A --server 100.100.129.79 --port 8080 listen
+./user_client -id A --server SERVER_IP --port 8080 listen
 
 # Start Client B
-./user_client -id B --server 100.100.129.79 --port 8080
+./user_client -id B --server SERVER_IP --port 8080
 
 # Start Client C
-./user_client -id C --server 100.100.129.79 --port 8080
+./user_client -id C --server SERVER_IP --port 8080
 
 ```
 ### Upravljanje bazom podataka
@@ -272,7 +272,7 @@ SELECT urn, active FROM users;
 -- Number of registered vehicles
 SELECT COUNT(*) FROM vehicles;
 
--- List all vehicles (full details)
+-- List all vehicles
 SELECT * FROM vehicles;
 
 -- Active vehicles only
@@ -312,16 +312,12 @@ Minimal “smoke” test: server boots and basic commands work without errors.
 Throughput/latency measurement under load -> example: 50 connections for 60 seconds.
 ./benchmark_test --connections 50 --duration 60
 
-### Load Testing (Multiple Clients)
-Spawn multiple clients in parallel to stress the system (example: 10).
-Adjust --server/--port as needed.
-for i in {1..10}; do
-  ./user_client --server 192.168.1.10 --port 8080 --urn "123456789000$i" &
-done
-wait
+### Test Three Clients
+The test verifies that a leader can create a group and two other users can concurrently join it, while ensuring correct behavior for adding, removing, and re-adding members under concurrent access conditions.
+./test_three_clients
 
 ### Concurrent Reservation Test
-Verifies race control for reservations: prevents double-booking and checks
+Verifies race control for reservations: prevents double-booking and checks.
 ./concurrent_reservation_test
 
 ### Discount Test
@@ -356,22 +352,22 @@ Low-level UDP multicast: join/leave group and receive announcements (service dis
 Asynchronous broadcasting of line/route status and reception by subscribed clients.
 ./route_status_mcast_test
 
-#Performance 
-```
+### Performance
+Performance profiling with `perf`:
 cd build
 
-#Start central server
+# Start central server
 sudo perf record -g ./central_server
 
-#Start client
-.\user_client --server localhost --port 8080
+# Start client
+./user_client --server localhost --port 8080
 
-#Checking report
+# Checking report
 sudo perf report
-```
+
 ## Troubleshooting
 
-### 5. Common Issues and Solutions
+###Common Issues and Solutions
 
 #### 1. TLS Handshake Failure
 **Error:** `TLS handshake failed: sslv3 alert handshake failure`
