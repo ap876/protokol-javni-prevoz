@@ -383,13 +383,13 @@ Performance profiling with `perf`:
 
 $ cd build
 
-# Start central server
+**Start central server**
 $ sudo perf record -g ./central_server
 
-# Start client
+**Start client**
 $ ./user_client --server localhost --port 8080
 
-# Checking report
+**Checking report**
 $ sudo perf report
 
 ## Troubleshooting
