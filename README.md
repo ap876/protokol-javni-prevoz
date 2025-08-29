@@ -408,7 +408,7 @@ ls -la build/certs/
 ```
 ### 6. UPPAAL
 ```
-#Downoald 
+#Download 
 https://uppaal.org/downloads/
 
 #Starting UPPAAL on linux
