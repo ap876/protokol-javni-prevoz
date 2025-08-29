@@ -302,68 +302,95 @@ quit - Exit the client
 
 ### Protocol Tests
 End-to-end check of the core protocol: register, authenticate, register device, reserve, and purchase (happy path).
-./protocol_test
+
+$ ./protocol_test
+
 
 ### Basic Test
 Minimal “smoke” test: server boots and basic commands work without errors.
-./basic_test
+
+$ ./basic_test
+
 
 ### Benchmark Tests
 Throughput/latency measurement under load -> example: 50 connections for 60 seconds.
-./benchmark_test --connections 50 --duration 60
+
+$ ./benchmark_test --connections 50 --duration 60
+
 
 ### Test Three Clients
 The test verifies that a leader can create a group and two other users can concurrently join it, while ensuring correct behavior for adding, removing, and re-adding members under concurrent access conditions.
-./test_three_clients
+
+$ ./test_three_clients
+
 
 ### Concurrent Reservation Test
 Verifies race control for reservations: prevents double-booking and checks.
-./concurrent_reservation_test
+
+$ ./concurrent_reservation_test
+
 
 ### Discount Test
 Validates discount/pricing logic per ticket/group type (individual/family/business/tourist).
-./discount_test
+
+$ ./discount_test
+
 
 ### Group Duplicate Member Test
 Validates group membership rules: prevents adding the same member twice and checks leader/member constraints.
-./group_duplicate_member_test
+
+$ ./group_duplicate_member_test
+
 
 ### Admin Policy Test
 Validates admin-only operations and expected error codes for non-admin users.
-./admin_policy_test
+
+$ ./admin_policy_test
+
 
 ### Test Admin Updates
 Verifies that admin changes (e.g., fares/routes) propagate to clients and are persisted (DB + notifications).
-./test_admin_updates
+
+$ ./test_admin_updates
+
 
 ### Stream Test
 Robust TCP framing: handles fragmentation/reassembly; checks length-prefix and CRC32 integrity.
-./stream_test
+
+$ ./stream_test
+
 
 ### TLS Test
 TLS handshake and secure connection (Boost.Asio/OpenSSL); rejects invalid certificates per default config.
-./tls_test
+
+$ ./tls_test
+
 
 ### Multicast Test
 Low-level UDP multicast: join/leave group and receive announcements (service discovery/announce).
-./mcast_test
+
+$ ./mcast_test
+
 
 ### Route Status Multicast Test
 Asynchronous broadcasting of line/route status and reception by subscribed clients.
-./route_status_mcast_test
+
+$ ./route_status_mcast_test
+
 
 ### Performance
 Performance profiling with `perf`:
-cd build
+
+$ cd build
 
 # Start central server
-sudo perf record -g ./central_server
+$ sudo perf record -g ./central_server
 
 # Start client
-./user_client --server localhost --port 8080
+$ ./user_client --server localhost --port 8080
 
 # Checking report
-sudo perf report
+$ sudo perf report
 
 ## Troubleshooting
 
