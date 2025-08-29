@@ -394,7 +394,7 @@ $ sudo perf report
 
 ## Troubleshooting
 
-###Common Issues and Solutions
+**Common Issues and Solutions**
 
 #### 1. TLS Handshake Failure
 **Error:** `TLS handshake failed: sslv3 alert handshake failure`
