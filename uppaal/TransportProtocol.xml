@@ -1,0 +1,342 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE nta PUBLIC "-//Uppaal Team//DTD Flat System 1.1//EN" "http://www.it.uu.se/research/group/darts/uppaal/flat-1_1.dtd">
+<nta>
+<declaration>// ===== Global declarations =====
+
+// *** PROŠIRENJE: Dodani novi tipovi vozila ***
+const int VEHICLE_BUS = 1;
+const int VEHICLE_TRAM = 2;
+const int VEHICLE_TROLLEY = 3;
+
+// Message types
+const int MSG_CONNECT = 1;
+const int MSG_AUTH = 2;
+const int MSG_RESERVE_SEAT = 5;
+
+// Channels for communication
+chan connect_req, connect_resp;
+chan auth_req, auth_resp;
+chan service_req, service_resp;
+broadcast chan error_signal;
+chan disconnect_req;
+
+// Server &amp; vehicle internal channel pair
+// Sva vozila će slušati na istom kanalu, simulirajući pool resursa
+chan v_service_req, v_service_resp;
+
+// Global variables
+int message_type = 0;
+bool tls_enabled = false;
+bool user_authenticated = false;
+int active_connections = 0;
+int available_seats = 50; // Ovo je sada ukupan broj, ili se može razdvojiti po vozilu
+bool database_available = true;
+
+// Timing constraints
+clock processing_timer;
+const int MAX_CONNECTION_TIME = 10;
+const int MAX_PROCESSING_TIME = 30;
+</declaration>
+
+	<template>
+		<name>CentralServer</name>
+		<declaration>
+clock server_timer;
+int pending_requests = 0;
+bool vehicle_dispatched = false;
+bool vehicle_ack = false;
+</declaration>
+		<location id="id0" x="-629" y="-119">
+			<name x="-639" y="-153">Idle</name>
+		</location>
+		<location id="id1" x="-425" y="-119">
+			<name x="-450" y="-153">Listening</name>
+			<label kind="invariant" x="-459" y="-102">server_timer &lt;= 100</label>
+		</location>
+		<location id="id2" x="-153" y="-119">
+			<name x="-163" y="-153">SessionActive</name>
+		</location>
+		<location id="id3" x="-425" y="119">
+			<name x="-467" y="127">Processing</name>
+			<label kind="invariant" x="-561" y="102">processing_timer &lt;= MAX_PROCESSING_TIME</label>
+		</location>
+		<location id="id4" x="-425" y="323">
+			<name x="-435" y="331">Error</name>
+		</location>
+		<init ref="id0"/>
+		<transition>
+			<source ref="id3"/>
+			<target ref="id2"/>
+			<label kind="guard" x="-365" y="-51">database_available &amp;&amp; vehicle_ack &amp;&amp; 
+processing_timer &lt;= MAX_PROCESSING_TIME</label>
+			<label kind="synchronisation" x="-323" y="-17">service_resp!</label>
+			<label kind="assignment" x="-323" y="0">pending_requests -= 1</label>
+			<nail x="-153" y="119"/>
+		</transition>
+		<transition>
+			<source ref="id2"/>
+			<target ref="id3"/>
+			<label kind="synchronisation" x="-331" y="-42">service_req?</label>
+			<label kind="assignment" x="-331" y="-25">processing_timer = 0,
+pending_requests += 1,
+vehicle_dispatched = false,
+vehicle_ack = false</label>
+			<nail x="-425" y="-119"/>
+		</transition>
+		<transition>
+			<source ref="id4"/>
+			<target ref="id2"/>
+			<label kind="assignment" x="-263" y="246">pending_requests = 0</label>
+			<nail x="-153" y="323"/>
+		</transition>
+		<transition>
+			<source ref="id3"/>
+			<target ref="id4"/>
+			<label kind="guard" x="-595" y="204">!database_available || 
+processing_timer &gt; MAX_PROCESSING_TIME</label>
+			<label kind="synchronisation" x="-595" y="238">error_signal!</label>
+		</transition>
+		<transition>
+			<source ref="id3"/>
+			<target ref="id3"/>
+			<label kind="synchronisation" x="-365" y="119">v_service_resp?</label>
+			<label kind="assignment" x="-365" y="136">vehicle_ack = true</label>
+			<nail x="-391" y="153"/>
+			<nail x="-357" y="119"/>
+		</transition>
+		<transition>
+			<source ref="id3"/>
+			<target ref="id3"/>
+			<label kind="guard" x="-544" y="59">vehicle_dispatched == false</label>
+			<label kind="synchronisation" x="-544" y="76">v_service_req!</label>
+			<label kind="assignment" x="-544" y="93">vehicle_dispatched = true</label>
+			<nail x="-493" y="85"/>
+			<nail x="-459" y="51"/>
+		</transition>
+		<transition>
+			<source ref="id2"/>
+			<target ref="id1"/>
+			<label kind="synchronisation" x="-348" y="-161">disconnect_req?</label>
+			<label kind="assignment" x="-348" y="-144">active_connections -= 1,
+tls_enabled = false</label>
+		</transition>
+		<transition>
+			<source ref="id2"/>
+			<target ref="id2"/>
+			<label kind="synchronisation" x="-59" y="-85">auth_resp!</label>
+			<nail x="-119" y="-85"/>
+			<nail x="-85" y="-51"/>
+		</transition>
+		<transition>
+			<source ref="id2"/>
+			<target ref="id2"/>
+			<label kind="synchronisation" x="-59" y="-187">auth_req?</label>
+			<label kind="assignment" x="-59" y="-170">user_authenticated = true</label>
+			<nail x="-85" y="-187"/>
+			<nail x="-119" y="-153"/>
+		</transition>
+		<transition>
+			<source ref="id2"/>
+			<target ref="id2"/>
+			<label kind="synchronisation" x="-246" y="-187">connect_resp!</label>
+			<nail x="-187" y="-153"/>
+			<nail x="-221" y="-187"/>
+		</transition>
+		<transition>
+			<source ref="id1"/>
+			<target ref="id2"/>
+			<label kind="synchronisation" x="-357" y="-110">connect_req?</label>
+			<label kind="assignment" x="-357" y="-93">active_connections += 1,
+tls_enabled = true</label>
+		</transition>
+		<transition>
+			<source ref="id0"/>
+			<target ref="id1"/>
+			<label kind="assignment" x="-578" y="-136">server_timer = 0</label>
+		</transition>
+	</template>
+	<template>
+		<name>Client</name>
+		<declaration>
+clock client_timer;
+clock connection_timer;
+</declaration>
+		<location id="id5" x="-552" y="-51">
+			<name x="-562" y="-85">Disconnected</name>
+		</location>
+		<location id="id6" x="-323" y="-51">
+			<name x="-357" y="-85">Connecting</name>
+			<label kind="invariant" x="-374" y="-34">connection_timer &lt;= MAX_CONNECTION_TIME</label>
+		</location>
+		<location id="id7" x="-85" y="-51">
+			<name x="-95" y="-85">Connected</name>
+		</location>
+		<location id="id8" x="153" y="-51">
+			<name x="119" y="-85">Authenticated</name>
+		</location>
+		<location id="id9" x="153" y="187">
+			<name x="143" y="204">Processing</name>
+			<label kind="invariant" x="161" y="170">client_timer &lt;= MAX_PROCESSING_TIME</label>
+		</location>
+		<location id="id10" x="-85" y="187">
+			<name x="-95" y="204">Error</name>
+		</location>
+		<init ref="id5"/>
+		<transition>
+			<source ref="id10"/>
+			<target ref="id5"/>
+			<label kind="synchronisation" x="-450" y="51">disconnect_req!</label>
+			<nail x="-552" y="187"/>
+		</transition>
+		<transition>
+			<source ref="id8"/>
+			<target ref="id5"/>
+			<label kind="synchronisation" x="-365" y="-178">disconnect_req!</label>
+			<nail x="-17" y="-153"/>
+			<nail x="-408" y="-153"/>
+		</transition>
+		<transition>
+			<source ref="id9"/>
+			<target ref="id10"/>
+			<label kind="synchronisation" x="-25" y="212">error_signal?</label>
+		</transition>
+		<transition>
+			<source ref="id9"/>
+			<target ref="id10"/>
+			<label kind="guard" x="-51" y="119">client_timer &gt; MAX_PROCESSING_TIME</label>
+			<label kind="synchronisation" x="-51" y="136">error_signal!</label>
+			<nail x="34" y="187"/>
+		</transition>
+		<transition>
+			<source ref="id7"/>
+			<target ref="id5"/>
+			<label kind="synchronisation" x="-416" y="-110">error_signal?</label>
+			<nail x="-382" y="-85"/>
+		</transition>
+		<transition>
+			<source ref="id9"/>
+			<target ref="id8"/>
+			<label kind="guard" x="178" y="51">client_timer &lt;= MAX_PROCESSING_TIME</label>
+			<label kind="synchronisation" x="178" y="68">service_resp?</label>
+		</transition>
+		<transition>
+			<source ref="id8"/>
+			<target ref="id9"/>
+			<label kind="synchronisation" x="170" y="59">service_req!</label>
+			<label kind="assignment" x="170" y="76">client_timer = 0,
+message_type = MSG_RESERVE_SEAT</label>
+		</transition>
+		<transition>
+			<source ref="id7"/>
+			<target ref="id8"/>
+			<label kind="synchronisation" x="25" y="-68">auth_resp?</label>
+		</transition>
+		<transition>
+			<source ref="id7"/>
+			<target ref="id7"/>
+			<label kind="synchronisation" x="-68" y="-144">auth_req!</label>
+			<nail x="-51" y="-110"/>
+			<nail x="-17" y="-85"/>
+		</transition>
+		<transition>
+			<source ref="id6"/>
+			<target ref="id7"/>
+			<label kind="guard" x="-255" y="-102">connection_timer &lt;= MAX_CONNECTION_TIME</label>
+			<label kind="synchronisation" x="-255" y="-85">connect_resp?</label>
+			<label kind="assignment" x="-255" y="-68">client_timer = 0</label>
+		</transition>
+		<transition>
+			<source ref="id5"/>
+			<target ref="id6"/>
+			<label kind="synchronisation" x="-484" y="-85">connect_req!</label>
+			<label kind="assignment" x="-484" y="-68">connection_timer = 0</label>
+		</transition>
+	</template>
+	<template>
+		<name>VehicleServer</name>
+		<parameter>const int vehicle_id</parameter>
+		<declaration>
+clock vehicle_timer;
+</declaration>
+		<location id="id11" x="-459" y="-17">
+			<name x="-469" y="-51">Idle</name>
+		</location>
+		<location id="id12" x="-187" y="-17">
+			<name x="-246" y="-51">Processing_Request</name>
+			<label kind="invariant" x="-263" y="0">vehicle_timer &lt;= MAX_PROCESSING_TIME</label>
+		</location>
+		<location id="id13" x="-187" y="170">
+			<name x="-246" y="187">Updating_Central</name>
+		</location>
+		<init ref="id11"/>
+		<transition>
+			<source ref="id12"/>
+			<target ref="id11"/>
+			<label kind="guard" x="-382" y="-127">available_seats == 0 ||
+vehicle_timer &gt; MAX_PROCESSING_TIME</label>
+			<label kind="synchronisation" x="-382" y="-93">v_service_resp!</label>
+			<nail x="-323" y="-85"/>
+		</transition>
+		<transition>
+			<source ref="id13"/>
+			<target ref="id11"/>
+			<label kind="synchronisation" x="-391" y="68">v_service_resp!</label>
+			<nail x="-459" y="170"/>
+		</transition>
+		<transition>
+			<source ref="id12"/>
+			<target ref="id13"/>
+			<label kind="guard" x="-161" y="51">available_seats &gt; 0 &amp;&amp;
+vehicle_timer &lt;= MAX_PROCESSING_TIME</label>
+			<label kind="assignment" x="-161" y="85">available_seats -= 1</label>
+		</transition>
+		<transition>
+			<source ref="id11"/>
+			<target ref="id12"/>
+			<label kind="synchronisation" x="-382" y="-51">v_service_req?</label>
+			<label kind="assignment" x="-382" y="-34">vehicle_timer = 0</label>
+		</transition>
+	</template>
+	<system>
+// Jedan server
+server = CentralServer();
+
+// *** PROŠIRENJE: Dva klijenta ***
+client1 = Client();
+client2 = Client();
+
+// *** PROŠIRENJE: Tri vozila, koristeći parametrizovani templejt ***
+vehicle_bus = VehicleServer(VEHICLE_BUS);
+vehicle_tram = VehicleServer(VEHICLE_TRAM);
+vehicle_trolley = VehicleServer(VEHICLE_TROLLEY);
+
+// Deklaracija sistema sa svim komponentama
+system server, client1, client2, vehicle_bus, vehicle_tram, vehicle_trolley;
+</system>
+	<queries>
+		<query>
+			<formula>A[] not deadlock</formula>
+			<comment>No deadlock</comment>
+		</query>
+		<query>
+			<formula>E&lt;&gt; (client1.Authenticated and server.SessionActive)</formula>
+			<comment>Client 1 can authenticate</comment>
+		</query>
+		<query>
+			<formula>E&lt;&gt; (client2.Authenticated and server.SessionActive)</formula>
+			<comment>Client 2 can authenticate</comment>
+		</query>
+		<query>
+			<formula>A[] (available_seats &gt;= 0)</formula>
+			<comment>No negative seats</comment>
+		</query>
+		<query>
+			<formula>E&lt;&gt; (available_seats == 0)</formula>
+			<comment>It is possible for all seats to be taken</comment>
+		</query>
+		<query>
+			<formula>A[] (server.Processing imply processing_timer &lt;= MAX_PROCESSING_TIME)</formula>
+			<comment>Server processing bounded</comment>
+		</query>
+	</queries>
+</nta>

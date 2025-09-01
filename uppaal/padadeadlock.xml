@@ -1,0 +1,303 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE nta PUBLIC "-//Uppaal Team//DTD Flat System 1.1//EN" "http://www.it.uu.se/research/group/darts/uppaal/flat-1_1.dtd">
+<nta>
+<declaration>// ===== Global declarations =====
+
+// Message types
+const int MSG_CONNECT = 1;
+const int MSG_AUTH = 2;
+const int MSG_RESERVE_SEAT = 5;
+const int MSG_PURCHASE_TICKET = 6;
+
+// Channels for communication
+chan connect_req, connect_resp;
+chan auth_req, auth_resp;
+chan service_req, service_resp;
+broadcast chan error_signal;
+chan disconnect_req;
+
+// Server &amp; vehicle internal channel pair
+chan v_service_req, v_service_resp;
+
+// Global variables
+int message_type = 0;
+bool tls_enabled = false;
+bool user_authenticated = false;
+int active_connections = 0;
+int available_seats = 50;
+bool database_available = true;
+
+// Timing constraints (global clocks used by multiple components)
+clock processing_timer;
+const int MAX_CONNECTION_TIME = 10;
+const int MAX_PROCESSING_TIME = 30;
+</declaration>
+
+	<template>
+		<name>CentralServer</name>
+		<declaration>
+clock server_timer;
+int pending_requests = 0;
+bool vehicle_dispatched = false;
+bool vehicle_ack = false;
+</declaration>
+		<location id="id0" x="-408" y="-85">
+			<name>Idle</name>
+		</location>
+		<location id="id1" x="-204" y="-85">
+			<name>Listening</name>
+			<label kind="invariant" x="-214" y="-119">server_timer &lt;= 100</label>
+		</location>
+		<location id="id2" x="-102" y="-85">
+			<name>SessionActive</name>
+		</location>
+		<location id="id3" x="-204" y="68">
+			<name>Processing</name>
+			<label kind="invariant" x="-263" y="76">processing_timer &lt;= MAX_PROCESSING_TIME</label>
+		</location>
+		<location id="id4" x="-204" y="221">
+			<name>Error</name>
+		</location>
+		<init ref="id0"/>
+		<transition>
+			<source ref="id0"/>
+			<target ref="id1"/>
+			<label kind="assignment" x="-357" y="-102">server_timer = 0</label>
+		</transition>
+		<transition>
+			<source ref="id1"/>
+			<target ref="id2"/>
+			<label kind="synchronisation" x="-187" y="-127">connect_req?</label>
+			<label kind="assignment" x="-187" y="-110">active_connections += 1,
+tls_enabled = true</label>
+		</transition>
+		<transition>
+			<source ref="id2"/>
+			<target ref="id2"/>
+			<label kind="synchronisation" x="-34" y="-119">connect_resp!</label>
+		</transition>
+		<transition>
+			<source ref="id2"/>
+			<target ref="id2"/>
+			<label kind="synchronisation" x="-34" y="-68">auth_req?</label>
+			<label kind="assignment" x="-34" y="-51">user_authenticated = true</label>
+		</transition>
+		<transition>
+			<source ref="id2"/>
+			<target ref="id2"/>
+			<label kind="synchronisation" x="-34" y="0">auth_resp!</label>
+		</transition>
+		<transition>
+			<source ref="id2"/>
+			<target ref="id3"/>
+			<label kind="synchronisation" x="-153" y="0">service_req?</label>
+			<label kind="assignment" x="-153" y="17">processing_timer = 0,
+pending_requests += 1,
+vehicle_dispatched = false,
+vehicle_ack = false</label>
+		</transition>
+		<transition>
+			<source ref="id3"/>
+			<target ref="id3"/>
+			<label kind="guard" x="-357" y="34">vehicle_dispatched == false</label>
+			<label kind="synchronisation" x="-357" y="51">v_service_req!</label>
+			<label kind="assignment" x="-357" y="68">vehicle_dispatched = true</label>
+		</transition>
+		<transition>
+			<source ref="id3"/>
+			<target ref="id3"/>
+			<label kind="synchronisation" x="-85" y="51">v_service_resp?</label>
+			<label kind="assignment" x="-85" y="68">vehicle_ack = true</label>
+		</transition>
+		<transition>
+			<source ref="id3"/>
+			<target ref="id2"/>
+			<label kind="synchronisation" x="-153" y="-34">service_resp!</label>
+			<label kind="guard" x="-331" y="-42">database_available &amp;&amp; vehicle_ack &amp;&amp; processing_timer &lt;= MAX_PROCESSING_TIME</label>
+			<label kind="assignment" x="-161" y="-17">pending_requests -= 1</label>
+		</transition>
+		<transition>
+			<source ref="id3"/>
+			<target ref="id4"/>
+			<label kind="guard" x="-374" y="144">!database_available || processing_timer &gt; MAX_PROCESSING_TIME</label>
+			<label kind="synchronisation" x="-374" y="161">error_signal!</label>
+		</transition>
+		<transition>
+			<source ref="id4"/>
+			<target ref="id2"/>
+			<label kind="assignment" x="-144" y="187">pending_requests = 0</label>
+			<nail x="-102" y="221"/>
+		</transition>
+		<transition>
+			<source ref="id2"/>
+			<target ref="id1"/>
+			<label kind="synchronisation" x="-187" y="-76">disconnect_req?</label>
+			<label kind="assignment" x="-187" y="-59">active_connections -= 1,
+tls_enabled = false</label>
+		</transition>
+	</template>
+
+	<template>
+		<name>Client</name>
+		<declaration>
+clock client_timer;
+clock connection_timer; // Sat je sada lokalan za svakog klijenta
+</declaration>
+		<location id="id5" x="-204" y="-85">
+			<name>Disconnected</name>
+		</location>
+		<location id="id6" x="-136" y="-85">
+			<name>Connecting</name>
+			<label kind="invariant" x="-170" y="-119">connection_timer &lt;= MAX_CONNECTION_TIME</label>
+		</location>
+		<location id="id7" x="-68" y="-85">
+			<name>Connected</name>
+		</location>
+		<location id="id8" x="-68" y="68">
+			<name>Authenticated</name>
+		</location>
+		<location id="id9" x="-68" y="221">
+			<name>Processing</name>
+			<label kind="invariant" x="-119" y="229">client_timer &lt;= MAX_PROCESSING_TIME</label>
+		</location>
+		<location id="id10" x="-204" y="221">
+			<name>Error</name>
+		</location>
+		<init ref="id5"/>
+		<transition>
+			<source ref="id5"/>
+			<target ref="id6"/>
+			<label kind="synchronisation" x="-204" y="-127">connect_req!</label>
+			<label kind="assignment" x="-204" y="-110">connection_timer = 0</label>
+		</transition>
+		<transition>
+			<source ref="id6"/>
+			<target ref="id7"/>
+			<label kind="synchronisation" x="-119" y="-127">connect_resp?</label>
+			<label kind="guard" x="-119" y="-110">connection_timer &lt;= MAX_CONNECTION_TIME</label>
+			<label kind="assignment" x="-119" y="-93">client_timer = 0</label>
+		</transition>
+		<transition>
+			<source ref="id7"/>
+			<target ref="id7"/>
+			<label kind="synchronisation" x="-34" y="-110">auth_req!</label>
+		</transition>
+		<transition>
+			<source ref="id7"/>
+			<target ref="id8"/>
+			<label kind="synchronisation" x="-51" y="-34">auth_resp?</label>
+		</transition>
+		<transition>
+			<source ref="id8"/>
+			<target ref="id9"/>
+			<label kind="synchronisation" x="-51" y="136">service_req!</label>
+			<label kind="assignment" x="-51" y="153">client_timer = 0,
+message_type = MSG_RESERVE_SEAT</label>
+		</transition>
+		<transition>
+			<source ref="id9"/>
+			<target ref="id8"/>
+			<label kind="synchronisation" x="-51" y="93">service_resp?</label>
+			<label kind="guard" x="-51" y="110">client_timer &lt;= MAX_PROCESSING_TIME</label>
+		</transition>
+		<transition>
+			<source id="id9"/>
+			<target id="id10"/>
+			<label kind="synchronisation" x="-161" y="246">error_signal?</label>
+		</transition>
+		<transition>
+			<source ref="id7"/>
+			<target ref="id5"/>
+			<label kind="synchronisation" x="-263" y="-76">error_signal?</label>
+		</transition>
+		<transition>
+			<source ref="id9"/>
+			<target ref="id10"/>
+			<label kind="guard" x="-170" y="187">client_timer &gt; MAX_PROCESSING_TIME</label>
+			<label kind="synchronisation" x="-170" y="204">error_signal!</label>
+		</transition>
+		<transition>
+			<source ref="id10"/>
+			<target ref="id5"/>
+			<label kind="synchronisation" x="-289" y="136">disconnect_req!</label>
+		</transition>
+		<transition>
+			<source ref="id8"/>
+			<target ref="id5"/>
+			<label kind="synchronisation" x="-280" y="34">disconnect_req!</label>
+		</transition>
+	</template>
+
+	<template>
+		<name>VehicleServer</name>
+		<declaration>
+clock vehicle_timer;
+</declaration>
+		<location id="id11" x="-204" y="-85">
+			<name>Idle</name>
+		</location>
+		<location id="id12" x="-68" y="-85">
+			<name>Processing_Request</name>
+			<label kind="invariant" x="-127" y="-119">vehicle_timer &lt;= MAX_PROCESSING_TIME</label>
+		</location>
+		<location id="id13" x="-204" y="68">
+			<name>Updating_Central</name>
+		</location>
+		<init ref="id11"/>
+		<transition>
+			<source ref="id11"/>
+			<target ref="id12"/>
+			<label kind="synchronisation" x="-178" y="-119">v_service_req?</label>
+			<label kind="assignment" x="-178" y="-102">vehicle_timer = 0</label>
+		</transition>
+		<transition>
+			<source ref="id12"/>
+			<target ref="id13"/>
+			<label kind="guard" x="-178" y="-8">available_seats &gt; 0 &amp;&amp;
+vehicle_timer &lt;= MAX_PROCESSING_TIME</label>
+			<label kind="assignment" x="-178" y="25">available_seats -= 1</label>
+		</transition>
+		<transition>
+			<source ref="id13"/>
+			<target ref="id11"/>
+			<label kind="synchronisation" x="-153" y="34">v_service_resp!</label>
+		</transition>
+		<transition>
+			<source ref="id12"/>
+			<target ref="id11"/>
+			<label kind="guard" x="-178" y="-68">available_seats == 0 ||
+vehicle_timer &gt; MAX_PROCESSING_TIME</label>
+			<label kind="synchronisation" x="-178" y="-34">v_service_resp!</label>
+		</transition>
+	</template>
+
+	<system>
+server = CentralServer();
+client1 = Client();
+vehicle_bus = VehicleServer();
+
+system server, client1, vehicle_bus;
+</system>
+<queries>
+		<query>
+			<formula>A[] not deadlock</formula>
+			<comment>No deadlock</comment>
+		</query>
+		<query>
+			<formula>E&lt;&gt; (client1.Authenticated and server.SessionActive)</formula>
+			<comment>Client can authenticate while a session is active</comment>
+		</query>
+		<query>
+			<formula>A[] (available_seats &gt;= 0)</formula>
+			<comment>No negative seats</comment>
+		</query>
+		<query>
+			<formula>E&lt;&gt; (available_seats == 0)</formula>
+			<comment>Bus can become full</comment>
+		</query>
+		<query>
+			<formula>A[] (server.Processing imply processing_timer &lt;= MAX_PROCESSING_TIME)</formula>
+			<comment>Server processing bounded</comment>
+		</query>
+	</queries>
+</nta>
