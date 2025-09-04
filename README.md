@@ -1,4 +1,5 @@
 # Public Transport Protocol System - Setup and Run Instructions
+Univerzitet u Sarajevu - Elektrotehnički fakultet
 
 ## Overview
 Transport Protocol System is a C++ project that implements a secure public transport protocol across three components: the Central Server (users, authentication, reservations, and purchases), the Vehicle Server (route state, capacity, and reservation confirmations), and the User Client (an interactive CLI for registration, login, reservations, purchases, and group management). The goal is to provide a robust and verifiable end-to-end flow—from user registration to ticket issuance and validation.
